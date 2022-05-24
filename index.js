@@ -165,9 +165,17 @@ async function run() {
         app.get('/purchase/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
-            const item = await purchaseCollection.findOne(query);
+            const item = await toolsCollection.findOne(query);
             res.send(item);
         });
+
+        app.get('/purchase/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const item = await toolsCollection.findOne(query);
+            res.send(item);
+        });
+
         // app.put("/purchase/:id", async (req, res) => {
         //     const id = req.params.id;
         //     const updatedQuantity = req.body;
@@ -183,6 +191,7 @@ async function run() {
         // })
 
         // Create Order
+       
         app.post("/purchase", async (req, res) => {
             const purchase = req.body;
             const result = await purchaseCollection.insertOne(purchase);
