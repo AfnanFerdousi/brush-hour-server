@@ -35,6 +35,8 @@ function verifyJWT(req, res, next) {
     });
 }
 
+
+
 async function run() {
     try {
         await client.connect();
@@ -42,7 +44,27 @@ async function run() {
         const toolsCollection = client.db('brush_hour').collection('toolCollections');
         const userCollection = client.db('brush_hour').collection('users');
         const purchaseCollection = client.db('brush_hour').collection('purchases');
+        const ratingCollection = client.db('brush_hour').collection('ratings');
+        const profileCollection = client.db('brush_hour').collection('profiles');
+        const paymentCollection = client.db('brush_hour').collection('payments');
 
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                next();
+            }
+            else {
+                res.status(403).send({ message: 'forbidden' });
+            }
+        }
+
+
+        // app.post('/profile', verifyJWT, async (req, res) => {
+        //     const profile = req.body;
+        //     const result = await profileCollection.insertOne(profile);
+        //     res.send(result);
+        //   });
 
 
         // Home page 6 cards
@@ -59,6 +81,43 @@ async function run() {
             const cursor = toolsCollection.find(query);
             const tool = await cursor.toArray();
             res.send(tool);
+        });
+
+        app.delete("/tools/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const result = await toolsCollection.deleteOne(filter);
+            res.send(result)
+        })
+
+        app.post('/tools', verifyJWT, verifyAdmin, async (req, res) => {
+            const tool = req.body;
+            const result = await toolsCollection.insertOne(tool);
+            res.send(result);
+        });
+
+        app.get('/user', async (req, res) => {
+            const users = await userCollection.find().toArray();
+            res.send(users);
+        });
+
+        app.delete("/user/:email", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const result = await userCollection.deleteOne(filter);
+            res.send(result)
+        })
+
+        app.post("/myProfile/:email", verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const changes = req.body
+            const filter = { email: email }
+            const options = { upsert: true }
+            const updatedDoc = {
+                $set: changes
+            }
+            const updatedUser = await userCollection.updateOne(filter, updatedDoc, options);
+            res.send(updatedUser)
         })
 
         app.put('/user/:email', async (req, res) => {
@@ -74,6 +133,22 @@ async function run() {
             const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
             res.send({ result, token });
         })
+        app.get("/user/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email }
+            const result = await userCollection.findOne(query);
+            res.send(result)
+        })
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const updateDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
+
+        })
 
         app.get('/admin/:email', async (req, res) => {
             const email = req.params.email;
@@ -82,10 +157,15 @@ async function run() {
             res.send({ admin: isAdmin })
         })
 
+        app.get('/purchase', async (req, res) => {
+            const purchase = await purchaseCollection.find().toArray();
+            res.send(purchase);
+        });
+
         app.get('/purchase/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
-            const item = await toolsCollection.findOne(query);
+            const item = await purchaseCollection.findOne(query);
             res.send(item);
         });
         // app.put("/purchase/:id", async (req, res) => {
@@ -101,32 +181,46 @@ async function run() {
         //     const result = toolsCollection.updateOne(filter, updatedDoc, options);
         //     res.send({ result })
         // })
-        app.post("/purchase", verifyJWT, async (req, res) => {
+
+        // Create Order
+        app.post("/purchase", async (req, res) => {
             const purchase = req.body;
             const result = await purchaseCollection.insertOne(purchase);
             return res.send({ success: true, result: result })
         })
 
         //  My order delete
-
         app.delete("/purchase/:id", verifyJWT, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) };
             const result = await purchaseCollection.deleteOne(filter);
             res.send(result)
         })
+
         // Getting my order
-        app.get('/myOrder', verifyJWT, async (req, res) => {
-            const decodedEmail = req.decoded.email;
+        app.get('/myOrder', async (req, res) => {
+            // const decodedEmail = req.decoded.email;
             const email = req.query.email;
-            if (email === decodedEmail) {
-                const query = { buyerEmail: email };
-                const tool = await purchaseCollection.find(query).toArray();
-                res.send(tool);
-            }
-            else {
-                res.status(403).send({ message: 'forbidden access' })
-            }
+            const query = { buyerEmail: email };
+            const tool = await purchaseCollection.find(query).toArray();
+            res.send(tool);
+        })
+
+        // Creating Review
+        app.post("/review", verifyJWT, async (req, res) => {
+            const review = req.body;
+            const result = await ratingCollection.insertOne(review);
+            return res.send({ success: true, result: result })
+        })
+
+        // Getting my reviews
+        app.get('/review', async (req, res) => {
+            const query = {};
+            // const limit = 6;
+            const cursor = ratingCollection.find(query);
+            // const cursor = toolsCollection.find(query).limit(limit);
+            const review = await cursor.toArray();
+            res.send(review);
         })
 
 
