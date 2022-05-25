@@ -21,6 +21,8 @@ client.connect(() => {
     console.log('connected');
 })
 
+//  JSON WEB TOKEN
+
 function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -41,13 +43,15 @@ function verifyJWT(req, res, next) {
 async function run() {
     try {
         await client.connect();
-        //   all collections
+
+        // ALL COLLECTIONS
         const toolsCollection = client.db('brush_hour').collection('toolCollections');
         const userCollection = client.db('brush_hour').collection('users');
         const purchaseCollection = client.db('brush_hour').collection('purchases');
         const ratingCollection = client.db('brush_hour').collection('ratings');
         const paymentCollection = client.db('brush_hour').collection('payments');
 
+        // Check Admin
         const verifyAdmin = async (req, res, next) => {
             const requester = req.decoded.email;
             const requesterAccount = await userCollection.findOne({ email: requester });
@@ -59,6 +63,7 @@ async function run() {
             }
         }
 
+        // Making Payment
         app.post("/create-payment-intent", verifyJWT, async (req, res) => {
             const product = req.body;
             const price = product.price;
@@ -74,8 +79,7 @@ async function run() {
             });
         });
 
-        // Patch
-
+        // Update Payment status
         app.patch('/payment/:id', async (req, res) => {
             const id = req.params.id;
             const payment = req.body;
@@ -92,6 +96,7 @@ async function run() {
             res.send(updatedPurchases);
         })
 
+        // Updating Payment status in the UI
         app.put('/pending/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) };
@@ -104,7 +109,7 @@ async function run() {
             res.send(result)
         })
 
-        // Home page 6 cards
+        // Showing 6 tool card in Home page
         app.get('/tools/home', async (req, res) => {
             const query = {};
             const limit = 6;
@@ -112,21 +117,24 @@ async function run() {
             const tool = await cursor.toArray();
             res.send(tool);
         })
-
+        
+        // Getting all tools to show in Tools page
         app.get('/tools', async (req, res) => {
             const query = {};
             const cursor = toolsCollection.find(query);
             const tool = await cursor.toArray();
             res.send(tool);
         });
-
-        app.delete("/tools/:id", async (req, res) => {
+        
+        // Deleting certain tool from UI and database
+        app.delete("/tools/:id", verifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) };
             const result = await toolsCollection.deleteOne(filter);
             res.send(result)
         })
 
+        // Adding new tool in UI and database
         app.post('/tools', verifyJWT, verifyAdmin, async (req, res) => {
             const tool = req.body;
             const result = await toolsCollection.insertOne(tool);
@@ -138,6 +146,7 @@ async function run() {
             res.send(users);
         });
 
+        // I forgot what this is, I'm just not deleting it for safety reasons
         app.delete("/user/:email", async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) };
@@ -145,6 +154,7 @@ async function run() {
             res.send(result)
         })
 
+        // Updating My profile in Dashboard
         app.post("/myProfile/:email", verifyJWT, async (req, res) => {
             const email = req.params.email;
             const changes = req.body
@@ -157,6 +167,7 @@ async function run() {
             res.send(updatedUser)
         })
 
+        // I forgot what this is too
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
@@ -170,12 +181,16 @@ async function run() {
             const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
             res.send({ result, token });
         })
-        app.get("/user/:email", async (req, res) => {
+
+        // Getting data for my profile
+        app.get("/user/:email", verifyJWT, async (req, res) => {
             const email = req.params.email;
             const query = { email: email }
             const result = await userCollection.findOne(query);
             res.send(result)
         })
+
+        // Making admin
         app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
             const filter = { email: email };
@@ -187,6 +202,7 @@ async function run() {
 
         })
 
+        // use admin hook
         app.get('/admin/:email', async (req, res) => {
             const email = req.params.email;
             const user = await userCollection.findOne({ email: email });
@@ -194,6 +210,7 @@ async function run() {
             res.send({ admin: isAdmin })
         })
 
+        // Getting purchase orders to show in manage order
         app.get('/purchase', async (req, res) => {
             const purchase = await purchaseCollection.find().toArray();
             res.send(purchase);
@@ -232,7 +249,8 @@ async function run() {
 
         // Create Order
 
-        app.post("/purchase", async (req, res) => {
+        // Making an Order
+        app.post("/purchase", verifyJWT, async (req, res) => {
             const purchase = req.body;
             const result = await purchaseCollection.insertOne(purchase);
             return res.send({ success: true, result: result })
@@ -248,7 +266,6 @@ async function run() {
 
         // Getting my order
         app.get('/myOrder', async (req, res) => {
-            // const decodedEmail = req.decoded.email;
             const email = req.query.email;
             const query = { buyerEmail: email };
             const tool = await purchaseCollection.find(query).toArray();
@@ -265,9 +282,7 @@ async function run() {
         // Getting my reviews
         app.get('/review', async (req, res) => {
             const query = {};
-            // const limit = 6;
             const cursor = ratingCollection.find(query);
-            // const cursor = toolsCollection.find(query).limit(limit);
             const review = await cursor.toArray();
             res.send(review);
         })
