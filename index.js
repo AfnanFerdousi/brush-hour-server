@@ -155,7 +155,7 @@ async function run() {
         })
 
         // Updating My profile in Dashboard
-        app.post("/myProfile/:email", verifyJWT, async (req, res) => {
+        app.post("/myProfile/:email", async (req, res) => {
             const email = req.params.email;
             const changes = req.body
             const filter = { email: email }
@@ -168,7 +168,7 @@ async function run() {
         })
 
         // I forgot what this is too
-        app.put('/user/:email', async (req, res) => {
+        app.put('/user/:email', verifyJWT,async (req, res) => {
             const email = req.params.email;
             const user = req.body;
             const filter = { email: email };
@@ -183,7 +183,7 @@ async function run() {
         })
 
         // Getting data for my profile
-        app.get("/user/:email", verifyJWT, async (req, res) => {
+        app.get("/user/:email",  async (req, res) => {
             const email = req.params.email;
             const query = { email: email }
             const result = await userCollection.findOne(query);
