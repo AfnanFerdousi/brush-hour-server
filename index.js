@@ -167,7 +167,7 @@ async function run() {
             res.send(updatedUser)
         })
 
-        // I forgot what this is too
+        // Use Token DONT ADD JWT HERE
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
