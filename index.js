@@ -155,7 +155,7 @@ async function run() {
         })
 
         // Updating My profile in Dashboard
-        app.put("/myProfile/:email", verifyJWT, async (req, res) => {
+        app.post("/myProfile/:email", verifyJWT, async (req, res) => {
             const email = req.params.email;
             const changes = req.body
             const filter = { email: email }
