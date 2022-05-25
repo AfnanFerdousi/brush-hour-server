@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -45,7 +46,6 @@ async function run() {
         const userCollection = client.db('brush_hour').collection('users');
         const purchaseCollection = client.db('brush_hour').collection('purchases');
         const ratingCollection = client.db('brush_hour').collection('ratings');
-        const profileCollection = client.db('brush_hour').collection('profiles');
         const paymentCollection = client.db('brush_hour').collection('payments');
 
         const verifyAdmin = async (req, res, next) => {
@@ -59,13 +59,38 @@ async function run() {
             }
         }
 
+        app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+            const product = req.body;
+            const price = product.price;
+            const amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                payment_method_types: ["card"],
+            });
 
-        // app.post('/profile', verifyJWT, async (req, res) => {
-        //     const profile = req.body;
-        //     const result = await profileCollection.insertOne(profile);
-        //     res.send(result);
-        //   });
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
 
+        // Patch
+
+        app.patch('/payment/:id', async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    pending: true,
+                    transactionId: payment.transactionId
+                }
+            }
+            const result = await paymentCollection.insertOne(payment);
+            const updatedPurchases = await purchaseCollection.updateOne(filter, updatedDoc);
+            res.send(updatedPurchases);
+        })
 
         // Home page 6 cards
         app.get('/tools/home', async (req, res) => {
@@ -162,6 +187,7 @@ async function run() {
             res.send(purchase);
         });
 
+        // Getting data for purchase tool
         app.get('/purchase/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
@@ -169,12 +195,14 @@ async function run() {
             res.send(item);
         });
 
-        app.get('/purchase/:id', async (req, res) => {
+        // Getting data for payment 
+        app.get("/payment/:id", async (req, res) => {
             const id = req.params.id;
-            const query = { _id: ObjectId(id) };
-            const item = await toolsCollection.findOne(query);
-            res.send(item);
-        });
+            const query = { _id: ObjectId(id) }
+            const purchase = await purchaseCollection.findOne(query);
+            res.send(purchase)
+        })
+
 
         // app.put("/purchase/:id", async (req, res) => {
         //     const id = req.params.id;
@@ -191,7 +219,7 @@ async function run() {
         // })
 
         // Create Order
-       
+
         app.post("/purchase", async (req, res) => {
             const purchase = req.body;
             const result = await purchaseCollection.insertOne(purchase);
