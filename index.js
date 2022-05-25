@@ -92,6 +92,18 @@ async function run() {
             res.send(updatedPurchases);
         })
 
+        app.put('/pending/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    pending: false
+                }
+            }
+            const result = await purchaseCollection.updateOne(filter, updatedDoc);
+            res.send(result)
+        })
+
         // Home page 6 cards
         app.get('/tools/home', async (req, res) => {
             const query = {};
